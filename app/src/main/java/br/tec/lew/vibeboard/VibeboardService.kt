@@ -28,7 +28,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Backspace
 import androidx.compose.material.icons.automirrored.filled.KeyboardReturn
@@ -156,7 +156,7 @@ class VibeboardService : InputMethodService(), LifecycleOwner, ViewModelStoreOwn
                     ) {
                         Surface(
                             modifier = Modifier
-                                .padding(bottom = 0.dp) // Encostado na borda como pedido anteriormente
+                                .padding(bottom = 0.dp)
                                 .onGloballyPositioned { coords ->
                                     val pos = coords.positionInWindow()
                                     val rect = Rect(
@@ -168,7 +168,8 @@ class VibeboardService : InputMethodService(), LifecycleOwner, ViewModelStoreOwn
                                     touchableRegion.set(rect)
                                     window?.window?.decorView?.requestLayout()
                                 },
-                            shape = CircleShape,
+                            // Formato de "Notch" invertido: arredondado em cima, reto embaixo
+                            shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp, bottomStart = 0.dp, bottomEnd = 0.dp),
                             color = MaterialTheme.colorScheme.primaryContainer,
                             shadowElevation = 10.dp
                         ) {
@@ -214,7 +215,7 @@ class VibeboardService : InputMethodService(), LifecycleOwner, ViewModelStoreOwn
                                     )
                                 }
 
-                                // Microfone (Menor e com Gesto de Troca)
+                                // Microfone (Gesto Inteligente de Troca)
                                 var accumulatedDragX by remember { mutableFloatStateOf(0f) }
                                 var accumulatedDragY by remember { mutableFloatStateOf(0f) }
                                 val dragThreshold = 40f
@@ -222,7 +223,7 @@ class VibeboardService : InputMethodService(), LifecycleOwner, ViewModelStoreOwn
                                 Box(
                                     modifier = Modifier
                                         .height(45.dp)
-                                        .width(65.dp)
+                                        .width(75.dp)
                                         .clickable { toggleListening() }
                                         .pointerInput(Unit) {
                                             detectDragGestures(
@@ -248,7 +249,10 @@ class VibeboardService : InputMethodService(), LifecycleOwner, ViewModelStoreOwn
                                                 }
 
                                                 if (accumulatedDragY < -dragThreshold * 1.5f) {
-                                                    switchToNextInputMethod(false)
+                                                    if (!switchToNextInputMethod(true)) {
+                                                        val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+                                                        imm.showInputMethodPicker()
+                                                    }
                                                     accumulatedDragY = 0f
                                                 } else if (accumulatedDragY > dragThreshold * 1.5f) {
                                                     requestHideSelf(0)
