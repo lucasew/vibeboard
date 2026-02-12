@@ -90,14 +90,21 @@ class VibeboardService : InputMethodService(), LifecycleOwner, ViewModelStoreOwn
             override fun onRmsChanged(rmsdB: Float) {}
             override fun onBufferReceived(buffer: ByteArray?) {}
             override fun onEndOfSpeech() { isListening = false }
-            override fun onError(error: Int) { isListening = false }
+            override fun onError(error: Int) { 
+                isListening = false
+                currentInputConnection?.finishComposingText()
+            }
             override fun onResults(results: Bundle?) {
                 results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()?.let {
-                    currentInputConnection?.commitText(it, 1)
+                    currentInputConnection?.commitText("$it ", 1)
                 }
                 isListening = false
             }
-            override fun onPartialResults(partialResults: Bundle?) {}
+            override fun onPartialResults(partialResults: Bundle?) {
+                partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()?.let {
+                    currentInputConnection?.setComposingText(it, 1)
+                }
+            }
             override fun onEvent(eventType: Int, params: Bundle?) {}
         })
     }
@@ -115,7 +122,7 @@ class VibeboardService : InputMethodService(), LifecycleOwner, ViewModelStoreOwn
                     Surface(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(56.dp),
+                            .height(60.dp),
                         color = MaterialTheme.colorScheme.surfaceVariant
                     ) {
                         if (onDeviceRecognitionAvailable) {
@@ -123,11 +130,10 @@ class VibeboardService : InputMethodService(), LifecycleOwner, ViewModelStoreOwn
                                 modifier = Modifier.fillMaxSize().padding(horizontal = 4.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                // Backspace com repetição
                                 var isPressingBackspace by remember { mutableStateOf(false) }
                                 LaunchedEffect(isPressingBackspace) {
                                     if (isPressingBackspace) {
-                                        delay(500) // Delay inicial antes de começar a repetir
+                                        delay(500)
                                         while (isPressingBackspace) {
                                             currentInputConnection?.deleteSurroundingText(1, 0)
                                             delay(50)
@@ -142,14 +148,11 @@ class VibeboardService : InputMethodService(), LifecycleOwner, ViewModelStoreOwn
                                             detectTapGestures(
                                                 onPress = {
                                                     isPressingBackspace = true
-                                                    try {
-                                                        awaitRelease()
-                                                    } finally {
-                                                        isPressingBackspace = false
-                                                    }
+                                                    try { awaitRelease() } finally { isPressingBackspace = false }
                                                 },
-                                                onTap = {
-                                                    currentInputConnection?.deleteSurroundingText(1, 0)
+                                                onTap = { 
+                                                    currentInputConnection?.finishComposingText()
+                                                    currentInputConnection?.deleteSurroundingText(1, 0) 
                                                 }
                                             )
                                         },
@@ -162,13 +165,12 @@ class VibeboardService : InputMethodService(), LifecycleOwner, ViewModelStoreOwn
                                     )
                                 }
 
-                                // Microfone / Arraste
                                 var accumulatedDrag by remember { mutableFloatStateOf(0f) }
                                 val dragThreshold = 40f
 
                                 Box(
                                     modifier = Modifier
-                                        .weight(1.5f)
+                                        .weight(2f)
                                         .pointerInput(Unit) {
                                             detectHorizontalDragGestures(
                                                 onDragEnd = { accumulatedDrag = 0f },
@@ -196,9 +198,9 @@ class VibeboardService : InputMethodService(), LifecycleOwner, ViewModelStoreOwn
                                     }
                                 }
 
-                                // Enter
                                 IconButton(
                                     onClick = {
+                                        currentInputConnection?.finishComposingText()
                                         currentInputConnection?.sendKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_ENTER))
                                         currentInputConnection?.sendKeyEvent(KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_ENTER))
                                     },
@@ -222,9 +224,8 @@ class VibeboardService : InputMethodService(), LifecycleOwner, ViewModelStoreOwn
                                 contentAlignment = Alignment.Center
                             ) {
                                 Text(
-                                    text = "Download offline voice package",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    textAlign = TextAlign.Center
+                                    text = "Offline voice package needed",
+                                    style = MaterialTheme.typography.labelMedium
                                 )
                             }
                         }
@@ -249,6 +250,8 @@ class VibeboardService : InputMethodService(), LifecycleOwner, ViewModelStoreOwn
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
                 putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true)
+                putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
+                putExtra("android.speech.extra.ENABLE_FORMATTING", "punctuation")
             }
             speechRecognizer?.startListening(intent)
             isListening = true
