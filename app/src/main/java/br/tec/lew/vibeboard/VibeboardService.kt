@@ -249,8 +249,10 @@ class VibeboardService : InputMethodService(), LifecycleOwner, ViewModelStoreOwn
                                                 }
 
                                                 if (accumulatedDragY < -dragThreshold) {
-                                                    if (!switchToNextInputMethod(false)) {
-                                                        val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+                                                    val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+                                                    // O token identifica a janela do seu teclado atual
+                                                    val token = window.window?.attributes?.token;
+                                                    if (!imm.switchToLastInputMethod(token)) {
                                                         imm.showInputMethodPicker()
                                                     }
                                                     accumulatedDragY = 0f
