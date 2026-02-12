@@ -248,8 +248,8 @@ class VibeboardService : InputMethodService(), LifecycleOwner, ViewModelStoreOwn
                                                     accumulatedDragX = 0f
                                                 }
 
-                                                if (accumulatedDragY < -dragThreshold * 1.5f) {
-                                                    if (!switchToNextInputMethod(true)) {
+                                                if (accumulatedDragY < -dragThreshold) {
+                                                    if (!switchToNextInputMethod(false)) {
                                                         val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
                                                         imm.showInputMethodPicker()
                                                     }
@@ -265,7 +265,7 @@ class VibeboardService : InputMethodService(), LifecycleOwner, ViewModelStoreOwn
                                     Icon(
                                         imageVector = Icons.Default.Mic,
                                         contentDescription = "Record",
-                                        tint = if (isListening) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.onPrimaryContainer,
+                                        tint = if (isListening) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onPrimaryContainer,
                                         modifier = Modifier.size(27.dp)
                                     )
                                 }
