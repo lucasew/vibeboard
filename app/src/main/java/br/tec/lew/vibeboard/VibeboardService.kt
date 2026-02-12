@@ -1,6 +1,9 @@
 package br.tec.lew.vibeboard
 
+import android.content.Context
 import android.content.Intent
+import android.graphics.Rect
+import android.graphics.Region
 import android.graphics.drawable.ColorDrawable
 import android.inputmethodservice.InputMethodService
 import android.os.Bundle
@@ -10,9 +13,10 @@ import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import android.view.KeyEvent
 import android.view.View
+import android.view.inputmethod.InputMethodManager
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -20,8 +24,10 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Backspace
@@ -42,6 +48,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
@@ -58,12 +66,14 @@ import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import br.tec.lew.vibeboard.ui.theme.VibeboardTheme
 import kotlinx.coroutines.delay
 import java.util.Locale
+import kotlin.math.roundToInt
 
 class VibeboardService : InputMethodService(), LifecycleOwner, ViewModelStoreOwner, SavedStateRegistryOwner {
 
     private var speechRecognizer: SpeechRecognizer? = null
     private var isListening by mutableStateOf(false)
     private var onDeviceRecognitionAvailable by mutableStateOf(false)
+    private val touchableRegion = Region()
 
     private val lifecycleRegistry = LifecycleRegistry(this)
     override val lifecycle: Lifecycle get() = lifecycleRegistry
@@ -119,10 +129,11 @@ class VibeboardService : InputMethodService(), LifecycleOwner, ViewModelStoreOwn
     override fun onComputeInsets(outInsets: Insets?) {
         super.onComputeInsets(outInsets)
         if (outInsets != null) {
-            // Define o topo do conteúdo como a altura total da janela, 
-            // efetivamente dizendo ao sistema que o teclado não ocupa espaço "físico"
-            // que exija empurrar o app para cima.
-            outInsets.contentTopInsets = outInsets.visibleTopInsets
+            val height = window?.window?.decorView?.height ?: 0
+            outInsets.contentTopInsets = height
+            outInsets.visibleTopInsets = height
+            outInsets.touchableInsets = Insets.TOUCHABLE_INSETS_REGION
+            outInsets.touchableRegion.set(touchableRegion)
         }
     }
 
@@ -139,18 +150,34 @@ class VibeboardService : InputMethodService(), LifecycleOwner, ViewModelStoreOwn
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(110.dp)
+                            .height(80.dp)
                             .background(Color.Transparent),
                         contentAlignment = Alignment.BottomCenter
                     ) {
-                        if (onDeviceRecognitionAvailable) {
+                        Surface(
+                            modifier = Modifier
+                                .padding(bottom = 0.dp)
+                                .onGloballyPositioned { coords ->
+                                    val pos = coords.positionInWindow()
+                                    val rect = Rect(
+                                        pos.x.roundToInt(),
+                                        pos.y.roundToInt(),
+                                        (pos.x + coords.size.width).roundToInt(),
+                                        (pos.y + coords.size.height).roundToInt()
+                                    )
+                                    touchableRegion.set(rect)
+                                    window?.window?.decorView?.requestLayout()
+                                },
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.primaryContainer,
+                            shadowElevation = 10.dp
+                        ) {
                             Row(
-                                modifier = Modifier
-                                    .padding(bottom = 20.dp)
-                                    .fillMaxWidth(),
-                                horizontalArrangement = Arrangement.Center,
-                                verticalAlignment = Alignment.CenterVertically
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                             ) {
+                                // Backspace
                                 var isPressingBackspace by remember { mutableStateOf(false) }
                                 LaunchedEffect(isPressingBackspace) {
                                     if (isPressingBackspace) {
@@ -162,10 +189,9 @@ class VibeboardService : InputMethodService(), LifecycleOwner, ViewModelStoreOwn
                                     }
                                 }
 
-                                Surface(
+                                Box(
                                     modifier = Modifier
-                                        .size(52.dp)
-                                        .clip(CircleShape)
+                                        .size(45.dp)
                                         .pointerInput(Unit) {
                                             detectTapGestures(
                                                 onPress = {
@@ -178,99 +204,87 @@ class VibeboardService : InputMethodService(), LifecycleOwner, ViewModelStoreOwn
                                                 }
                                             )
                                         },
-                                    shape = CircleShape,
-                                    color = MaterialTheme.colorScheme.secondaryContainer,
-                                    shadowElevation = 6.dp
+                                    contentAlignment = Alignment.Center
                                 ) {
-                                    Box(contentAlignment = Alignment.Center) {
-                                        Icon(
-                                            imageVector = Icons.AutoMirrored.Filled.Backspace,
-                                            contentDescription = "Backspace",
-                                            tint = MaterialTheme.colorScheme.onSecondaryContainer
-                                        )
-                                    }
+                                    Icon(
+                                        imageVector = Icons.AutoMirrored.Filled.Backspace,
+                                        contentDescription = "Backspace",
+                                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                        modifier = Modifier.size(21.dp)
+                                    )
                                 }
 
-                                var accumulatedDrag by remember { mutableFloatStateOf(0f) }
+                                // Microfone
+                                var accumulatedDragX by remember { mutableFloatStateOf(0f) }
+                                var accumulatedDragY by remember { mutableFloatStateOf(0f) }
                                 val dragThreshold = 40f
 
-                                Surface(
+                                Box(
                                     modifier = Modifier
-                                        .padding(horizontal = 24.dp)
-                                        .size(80.dp)
-                                        .clip(CircleShape)
+                                        .height(45.dp)
+                                        .width(75.dp)
                                         .clickable { toggleListening() }
                                         .pointerInput(Unit) {
-                                            detectHorizontalDragGestures(
-                                                onDragEnd = { accumulatedDrag = 0f },
-                                                onDragCancel = { accumulatedDrag = 0f }
+                                            detectDragGestures(
+                                                onDragEnd = { 
+                                                    accumulatedDragX = 0f
+                                                    accumulatedDragY = 0f
+                                                },
+                                                onDragCancel = { 
+                                                    accumulatedDragX = 0f
+                                                    accumulatedDragY = 0f
+                                                }
                                             ) { change, dragAmount ->
                                                 change.consume()
-                                                accumulatedDrag += dragAmount
-                                                if (accumulatedDrag > dragThreshold) {
+                                                accumulatedDragX += dragAmount.x
+                                                accumulatedDragY += dragAmount.y
+
+                                                if (accumulatedDragX > dragThreshold) {
                                                     moveCursor(1)
-                                                    accumulatedDrag = 0f
-                                                } else if (accumulatedDrag < -dragThreshold) {
+                                                    accumulatedDragX = 0f
+                                                } else if (accumulatedDragX < -dragThreshold) {
                                                     moveCursor(-1)
-                                                    accumulatedDrag = 0f
+                                                    accumulatedDragX = 0f
+                                                }
+
+                                                if (accumulatedDragY < -dragThreshold * 1.5f) {
+                                                    val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+                                                    imm.showInputMethodPicker()
+                                                    accumulatedDragY = 0f
+                                                } else if (accumulatedDragY > dragThreshold * 1.5f) {
+                                                    requestHideSelf(0)
+                                                    accumulatedDragY = 0f
                                                 }
                                             }
                                         },
-                                    shape = CircleShape,
-                                    color = if (isListening) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.primaryContainer,
-                                    shadowElevation = 10.dp
+                                    contentAlignment = Alignment.Center
                                 ) {
-                                    Box(contentAlignment = Alignment.Center) {
-                                        Icon(
-                                            imageVector = Icons.Default.Mic,
-                                            contentDescription = "Record",
-                                            tint = if (isListening) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onPrimaryContainer,
-                                            modifier = Modifier.size(36.dp)
-                                        )
-                                    }
+                                    Icon(
+                                        imageVector = Icons.Default.Mic,
+                                        contentDescription = "Record",
+                                        tint = if (isListening) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.onPrimaryContainer,
+                                        modifier = Modifier.size(27.dp)
+                                    )
                                 }
 
-                                Surface(
+                                // Enter
+                                Box(
                                     modifier = Modifier
-                                        .size(52.dp)
-                                        .clip(CircleShape)
+                                        .size(45.dp)
                                         .clickable {
                                             currentInputConnection?.finishComposingText()
                                             currentInputConnection?.sendKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_ENTER))
                                             currentInputConnection?.sendKeyEvent(KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_ENTER))
                                         },
-                                    shape = CircleShape,
-                                    color = MaterialTheme.colorScheme.secondaryContainer,
-                                    shadowElevation = 6.dp
+                                    contentAlignment = Alignment.Center
                                 ) {
-                                    Box(contentAlignment = Alignment.Center) {
-                                        Icon(
-                                            imageVector = Icons.AutoMirrored.Filled.KeyboardReturn,
-                                            contentDescription = "Enter",
-                                            tint = MaterialTheme.colorScheme.onSecondaryContainer
-                                        )
-                                    }
+                                    Icon(
+                                        imageVector = Icons.AutoMirrored.Filled.KeyboardReturn,
+                                        contentDescription = "Enter",
+                                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                        modifier = Modifier.size(21.dp)
+                                    )
                                 }
-                            }
-                        } else {
-                            Surface(
-                                modifier = Modifier
-                                    .padding(bottom = 20.dp)
-                                    .clickable {
-                                        val intent = Intent(Settings.ACTION_VOICE_INPUT_SETTINGS).apply {
-                                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                        }
-                                        startActivity(intent)
-                                    },
-                                shape = CircleShape,
-                                color = MaterialTheme.colorScheme.errorContainer,
-                                shadowElevation = 4.dp
-                            ) {
-                                Text(
-                                    text = "Ativar Voz Offline",
-                                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp),
-                                    style = MaterialTheme.typography.labelLarge
-                                )
                             }
                         }
                     }
@@ -304,9 +318,12 @@ class VibeboardService : InputMethodService(), LifecycleOwner, ViewModelStoreOwn
 
     override fun onWindowShown() {
         super.onWindowShown()
-        window?.window?.setBackgroundDrawable(ColorDrawable(android.graphics.Color.TRANSPARENT))
-        window?.window?.setDimAmount(0f)
-
+        window?.window?.let { win ->
+            win.setBackgroundDrawable(ColorDrawable(android.graphics.Color.TRANSPARENT))
+            win.setDimAmount(0f)
+            win.navigationBarColor = android.graphics.Color.TRANSPARENT
+            win.setDecorFitsSystemWindows(false)
+        }
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_START)
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_RESUME)
     }
