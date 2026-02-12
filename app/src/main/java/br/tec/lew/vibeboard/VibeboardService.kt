@@ -1,6 +1,7 @@
 package br.tec.lew.vibeboard
 
 import android.content.Intent
+import android.graphics.drawable.ColorDrawable
 import android.inputmethodservice.InputMethodService
 import android.os.Bundle
 import android.provider.Settings
@@ -9,21 +10,24 @@ import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import android.view.KeyEvent
 import android.view.View
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Backspace
 import androidx.compose.material.icons.automirrored.filled.KeyboardReturn
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -35,9 +39,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.ComposeView
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
@@ -109,6 +114,18 @@ class VibeboardService : InputMethodService(), LifecycleOwner, ViewModelStoreOwn
         })
     }
 
+    override fun onEvaluateFullscreenMode(): Boolean = false
+
+    override fun onComputeInsets(outInsets: Insets?) {
+        super.onComputeInsets(outInsets)
+        if (outInsets != null) {
+            // Define o topo do conteúdo como a altura total da janela, 
+            // efetivamente dizendo ao sistema que o teclado não ocupa espaço "físico"
+            // que exija empurrar o app para cima.
+            outInsets.contentTopInsets = outInsets.visibleTopInsets
+        }
+    }
+
     override fun onCreateInputView(): View {
         return ComposeView(this).apply {
             window?.window?.decorView?.let { decor ->
@@ -119,15 +136,19 @@ class VibeboardService : InputMethodService(), LifecycleOwner, ViewModelStoreOwn
 
             setContent {
                 VibeboardTheme {
-                    Surface(
+                    Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(60.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant
+                            .height(110.dp)
+                            .background(Color.Transparent),
+                        contentAlignment = Alignment.BottomCenter
                     ) {
                         if (onDeviceRecognitionAvailable) {
                             Row(
-                                modifier = Modifier.fillMaxSize().padding(horizontal = 4.dp),
+                                modifier = Modifier
+                                    .padding(bottom = 20.dp)
+                                    .fillMaxWidth(),
+                                horizontalArrangement = Arrangement.Center,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 var isPressingBackspace by remember { mutableStateOf(false) }
@@ -141,9 +162,10 @@ class VibeboardService : InputMethodService(), LifecycleOwner, ViewModelStoreOwn
                                     }
                                 }
 
-                                Box(
+                                Surface(
                                     modifier = Modifier
-                                        .weight(1f)
+                                        .size(52.dp)
+                                        .clip(CircleShape)
                                         .pointerInput(Unit) {
                                             detectTapGestures(
                                                 onPress = {
@@ -156,21 +178,28 @@ class VibeboardService : InputMethodService(), LifecycleOwner, ViewModelStoreOwn
                                                 }
                                             )
                                         },
-                                    contentAlignment = Alignment.Center
+                                    shape = CircleShape,
+                                    color = MaterialTheme.colorScheme.secondaryContainer,
+                                    shadowElevation = 6.dp
                                 ) {
-                                    Icon(
-                                        imageVector = Icons.AutoMirrored.Filled.Backspace,
-                                        contentDescription = "Backspace",
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Icon(
+                                            imageVector = Icons.AutoMirrored.Filled.Backspace,
+                                            contentDescription = "Backspace",
+                                            tint = MaterialTheme.colorScheme.onSecondaryContainer
+                                        )
+                                    }
                                 }
 
                                 var accumulatedDrag by remember { mutableFloatStateOf(0f) }
                                 val dragThreshold = 40f
 
-                                Box(
+                                Surface(
                                     modifier = Modifier
-                                        .weight(2f)
+                                        .padding(horizontal = 24.dp)
+                                        .size(80.dp)
+                                        .clip(CircleShape)
+                                        .clickable { toggleListening() }
                                         .pointerInput(Unit) {
                                             detectHorizontalDragGestures(
                                                 onDragEnd = { accumulatedDrag = 0f },
@@ -187,45 +216,60 @@ class VibeboardService : InputMethodService(), LifecycleOwner, ViewModelStoreOwn
                                                 }
                                             }
                                         },
-                                    contentAlignment = Alignment.Center
+                                    shape = CircleShape,
+                                    color = if (isListening) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.primaryContainer,
+                                    shadowElevation = 10.dp
                                 ) {
-                                    IconButton(onClick = { toggleListening() }) {
+                                    Box(contentAlignment = Alignment.Center) {
                                         Icon(
                                             imageVector = Icons.Default.Mic,
                                             contentDescription = "Record",
-                                            tint = if (isListening) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+                                            tint = if (isListening) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onPrimaryContainer,
+                                            modifier = Modifier.size(36.dp)
                                         )
                                     }
                                 }
 
-                                IconButton(
-                                    onClick = {
-                                        currentInputConnection?.finishComposingText()
-                                        currentInputConnection?.sendKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_ENTER))
-                                        currentInputConnection?.sendKeyEvent(KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_ENTER))
-                                    },
-                                    modifier = Modifier.weight(1f)
+                                Surface(
+                                    modifier = Modifier
+                                        .size(52.dp)
+                                        .clip(CircleShape)
+                                        .clickable {
+                                            currentInputConnection?.finishComposingText()
+                                            currentInputConnection?.sendKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_ENTER))
+                                            currentInputConnection?.sendKeyEvent(KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_ENTER))
+                                        },
+                                    shape = CircleShape,
+                                    color = MaterialTheme.colorScheme.secondaryContainer,
+                                    shadowElevation = 6.dp
                                 ) {
-                                    Icon(
-                                        imageVector = Icons.AutoMirrored.Filled.KeyboardReturn,
-                                        contentDescription = "Enter",
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Icon(
+                                            imageVector = Icons.AutoMirrored.Filled.KeyboardReturn,
+                                            contentDescription = "Enter",
+                                            tint = MaterialTheme.colorScheme.onSecondaryContainer
+                                        )
+                                    }
                                 }
                             }
                         } else {
-                            Box(
-                                modifier = Modifier.fillMaxSize().clickable {
-                                    val intent = Intent(Settings.ACTION_VOICE_INPUT_SETTINGS).apply {
-                                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                    }
-                                    startActivity(intent)
-                                },
-                                contentAlignment = Alignment.Center
+                            Surface(
+                                modifier = Modifier
+                                    .padding(bottom = 20.dp)
+                                    .clickable {
+                                        val intent = Intent(Settings.ACTION_VOICE_INPUT_SETTINGS).apply {
+                                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                        }
+                                        startActivity(intent)
+                                    },
+                                shape = CircleShape,
+                                color = MaterialTheme.colorScheme.errorContainer,
+                                shadowElevation = 4.dp
                             ) {
                                 Text(
-                                    text = "Offline voice package needed",
-                                    style = MaterialTheme.typography.labelMedium
+                                    text = "Ativar Voz Offline",
+                                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp),
+                                    style = MaterialTheme.typography.labelLarge
                                 )
                             }
                         }
@@ -260,6 +304,9 @@ class VibeboardService : InputMethodService(), LifecycleOwner, ViewModelStoreOwn
 
     override fun onWindowShown() {
         super.onWindowShown()
+        window?.window?.setBackgroundDrawable(ColorDrawable(android.graphics.Color.TRANSPARENT))
+        window?.window?.setDimAmount(0f)
+
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_START)
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_RESUME)
     }
