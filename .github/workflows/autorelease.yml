@@ -10,6 +10,8 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  checks: write
+  statuses: write
 
 jobs:
   build-and-release:
@@ -29,20 +31,29 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Verify mise version
-        run: mise --version
+      - name: Verify tools
+        run: |
+          set -x
+          mise --version
+          which workspaced || echo "workspaced not found"
+          workspaced --version || echo "workspaced version unknown"
 
       - name: Install dependencies
-        run: mise run install
+        run: |
+          set -x
+          mise run install
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Codegen
-        run: mise run codegen
+        run: |
+          set -x
+          mise run codegen
 
       - name: Check for changes
         id: git-check
         run: |
+          set -x
           git diff --exit-code || echo "changes=true" >> $GITHUB_OUTPUT
 
       - name: Create PR for generated code
@@ -56,7 +67,9 @@ jobs:
           branch: "chore/update-generated-code"
 
       - name: CI
-        run: mise run ci
+        run: |
+          set -x
+          mise run ci
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

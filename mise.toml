@@ -3,9 +3,9 @@
 java = "21.0.2"
 
 [tasks]
-install = "./gradlew dependencies"
+install = "./gradlew dependencies --stacktrace --info"
 lint = "workspaced codebase lint"
 fmt = "workspaced codebase format"
-test = "./gradlew test"
+test = "./gradlew test --stacktrace --info"
 codegen = "echo 'No codegen configured'"
 ci = { depends = ["lint", "test"] }
