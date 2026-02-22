@@ -1,0 +1,66 @@
+name: Autorelease
+
+on:
+  push:
+    branches: ["main", "master"]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: jdx/mise-action@v2
+        with:
+          install: true
+          cache: true
+
+      - name: Install dependencies
+        run: mise run install
+
+      - name: Codegen
+        run: mise run codegen
+
+      - name: Check for changes
+        id: git-check
+        run: |
+          git diff --exit-code || echo "changes=true" >> $GITHUB_OUTPUT
+
+      - name: Create PR for generated code
+        if: steps.git-check.outputs.changes == 'true'
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "chore: update generated code"
+          title: "chore: update generated code"
+          body: "This PR updates the generated code."
+          branch: "chore/update-generated-code"
+
+      - name: CI
+        run: mise run ci
+
+      - name: Build Release APK
+        if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
+        run: ./gradlew assembleRelease
+
+      - name: Release
+        if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          apk_path=$(find app/build/outputs/apk/release -name "*.apk" | head -n 1)
+          if [ -z "$apk_path" ]; then
+            echo "No APK found!"
+            exit 1
+          fi
+          echo "Found APK: $apk_path"
+          gh release create ${{ github.ref_name }} --generate-notes "$apk_path"
