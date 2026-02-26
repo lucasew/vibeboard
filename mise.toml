@@ -1,0 +1,16 @@
+[tools]
+go = "1.24.0"
+java = "21"
+"ubi:lucasew/workspaced" = "0.1.5"
+
+[settings]
+experimental = true
+
+[tasks]
+lint = { run = "workspaced codebase lint", description = "Run linting" }
+fmt = { run = "workspaced codebase format", description = "Format code" }
+test = { run = "./gradlew check", description = "Run tests" }
+build = { run = "./gradlew assembleRelease", description = "Build release APK" }
+codegen = { run = "true", description = "Update generated code" }
+install = { run = "chmod +x gradlew", description = "Install dependencies" }
+ci = { depends = ["lint", "test", "build"], description = "Run CI pipeline" }
