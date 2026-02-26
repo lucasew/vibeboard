@@ -10,7 +10,7 @@ experimental = true
 lint = { run = "workspaced codebase lint", description = "Run linting" }
 fmt = { run = "workspaced codebase format", description = "Format code" }
 test = { run = "./gradlew test", description = "Run unit tests" }
-build = { run = "./gradlew assembleRelease", description = "Build release APK" }
+build = { run = "./gradlew assembleRelease", depends = ["test"], description = "Build release APK" }
 codegen = { run = "true", description = "Update generated code" }
 install = { run = "chmod +x gradlew", description = "Install dependencies" }
 ci = { depends = ["lint", "test", "build"], description = "Run CI pipeline" }
