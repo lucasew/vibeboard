@@ -9,5 +9,5 @@ import android.util.Log
 fun reportError(error: Throwable, context: Map<String, Any> = emptyMap()) {
     // In the future, this should report to Sentry or another crash reporting tool.
     val contextString = if (context.isNotEmpty()) " Context: $context" else ""
-    Log.e("VibeboardError", "An error occurred: $error$contextString", error)
+    Log.e("VibeboardError", "An error occurred: ${error.message}$contextString", error)
 }
