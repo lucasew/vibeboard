@@ -54,6 +54,7 @@ import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
+import br.tec.lew.vibeboard.ui.VibeboardKeyboard
 import androidx.lifecycle.LifecycleRegistry
 import androidx.lifecycle.ViewModelStore
 import androidx.lifecycle.ViewModelStoreOwner
@@ -106,6 +107,7 @@ class VibeboardService : InputMethodService(), LifecycleOwner, ViewModelStoreOwn
             override fun onBufferReceived(buffer: ByteArray?) {}
             override fun onEndOfSpeech() { isListening = false }
             override fun onError(error: Int) { 
+                reportError(Exception("SpeechRecognizer error: $error"), mapOf("errorCode" to error))
                 isListening = false
                 currentInputConnection?.finishComposingText()
             }
@@ -147,152 +149,42 @@ class VibeboardService : InputMethodService(), LifecycleOwner, ViewModelStoreOwn
 
             setContent {
                 VibeboardTheme {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(80.dp)
-                            .background(Color.Transparent),
-                        contentAlignment = Alignment.BottomCenter
-                    ) {
-                        Surface(
-                            modifier = Modifier
-                                .padding(bottom = 0.dp)
-                                .onGloballyPositioned { coords ->
-                                    val pos = coords.positionInWindow()
-                                    val rect = Rect(
-                                        pos.x.roundToInt(),
-                                        pos.y.roundToInt(),
-                                        (pos.x + coords.size.width).roundToInt(),
-                                        (pos.y + coords.size.height).roundToInt()
-                                    )
-                                    touchableRegion.set(rect)
-                                    window?.window?.decorView?.requestLayout()
-                                },
-                            // Formato de "Notch" invertido: arredondado em cima, reto embaixo
-                            shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp, bottomStart = 0.dp, bottomEnd = 0.dp),
-                            color = MaterialTheme.colorScheme.primaryContainer,
-                            shadowElevation = 10.dp
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                            ) {
-                                // Backspace
-                                var isPressingBackspace by remember { mutableStateOf(false) }
-                                LaunchedEffect(isPressingBackspace) {
-                                    if (isPressingBackspace) {
-                                        delay(500)
-                                        while (isPressingBackspace) {
-                                            currentInputConnection?.deleteSurroundingText(1, 0)
-                                            delay(50)
-                                        }
-                                    }
-                                }
-
-                                Box(
-                                    modifier = Modifier
-                                        .size(45.dp)
-                                        .pointerInput(Unit) {
-                                            detectTapGestures(
-                                                onPress = {
-                                                    isPressingBackspace = true
-                                                    try { awaitRelease() } finally { isPressingBackspace = false }
-                                                },
-                                                onTap = { 
-                                                    currentInputConnection?.finishComposingText()
-                                                    currentInputConnection?.deleteSurroundingText(1, 0) 
-                                                }
-                                            )
-                                        },
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.AutoMirrored.Filled.Backspace,
-                                        contentDescription = "Backspace",
-                                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                        modifier = Modifier.size(21.dp)
-                                    )
-                                }
-
-                                // Microfone (Gesto Inteligente de Troca)
-                                var accumulatedDragX by remember { mutableFloatStateOf(0f) }
-                                var accumulatedDragY by remember { mutableFloatStateOf(0f) }
-                                val dragThreshold = 40f
-
-                                Box(
-                                    modifier = Modifier
-                                        .height(45.dp)
-                                        .width(75.dp)
-                                        .clickable { toggleListening() }
-                                        .pointerInput(Unit) {
-                                            detectDragGestures(
-                                                onDragEnd = { 
-                                                    accumulatedDragX = 0f
-                                                    accumulatedDragY = 0f
-                                                },
-                                                onDragCancel = { 
-                                                    accumulatedDragX = 0f
-                                                    accumulatedDragY = 0f
-                                                }
-                                            ) { change, dragAmount ->
-                                                change.consume()
-                                                accumulatedDragX += dragAmount.x
-                                                accumulatedDragY += dragAmount.y
-
-                                                if (accumulatedDragX > dragThreshold) {
-                                                    moveCursor(1)
-                                                    accumulatedDragX = 0f
-                                                } else if (accumulatedDragX < -dragThreshold) {
-                                                    moveCursor(-1)
-                                                    accumulatedDragX = 0f
-                                                }
-
-                                                if (accumulatedDragY < -dragThreshold) {
-                                                    val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
-                                                    // O token identifica a janela do seu teclado atual
-                                                    val token = window.window?.attributes?.token;
-                                                    if (!imm.switchToLastInputMethod(token)) {
-                                                        imm.showInputMethodPicker()
-                                                    }
-                                                    accumulatedDragY = 0f
-                                                } else if (accumulatedDragY > dragThreshold * 1.5f) {
-                                                    requestHideSelf(0)
-                                                    accumulatedDragY = 0f
-                                                }
-                                            }
-                                        },
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Mic,
-                                        contentDescription = "Record",
-                                        tint = if (isListening) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onPrimaryContainer,
-                                        modifier = Modifier.size(27.dp)
-                                    )
-                                }
-
-                                // Enter
-                                Box(
-                                    modifier = Modifier
-                                        .size(45.dp)
-                                        .clickable {
-                                            currentInputConnection?.finishComposingText()
-                                            currentInputConnection?.sendKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_ENTER))
-                                            currentInputConnection?.sendKeyEvent(KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_ENTER))
-                                        },
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.AutoMirrored.Filled.KeyboardReturn,
-                                        contentDescription = "Enter",
-                                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                        modifier = Modifier.size(21.dp)
-                                    )
-                                }
+                    VibeboardKeyboard(
+                        isListening = isListening,
+                        onBackspaceRepeat = {
+                            currentInputConnection?.deleteSurroundingText(1, 0)
+                        },
+                        onBackspaceTap = {
+                            currentInputConnection?.finishComposingText()
+                            currentInputConnection?.deleteSurroundingText(1, 0)
+                        },
+                        onToggleListening = { toggleListening() },
+                        onEnterClick = {
+                            currentInputConnection?.finishComposingText()
+                            currentInputConnection?.sendKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_ENTER))
+                            currentInputConnection?.sendKeyEvent(KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_ENTER))
+                        },
+                        onMoveCursor = { moveCursor(it) },
+                        onSwitchKeyboard = {
+                            val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+                            val token = window.window?.attributes?.token
+                            if (!imm.switchToLastInputMethod(token)) {
+                                imm.showInputMethodPicker()
                             }
+                        },
+                        onHideKeyboard = { requestHideSelf(0) },
+                        onLayoutCoordinates = { coords ->
+                            val pos = coords.positionInWindow()
+                            val rect = Rect(
+                                pos.x.roundToInt(),
+                                pos.y.roundToInt(),
+                                (pos.x + coords.size.width).roundToInt(),
+                                (pos.y + coords.size.height).roundToInt()
+                            )
+                            touchableRegion.set(rect)
+                            window?.window?.decorView?.requestLayout()
                         }
-                    }
+                    )
                 }
             }
         }
