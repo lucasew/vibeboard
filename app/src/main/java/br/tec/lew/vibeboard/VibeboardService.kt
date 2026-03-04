@@ -8,9 +8,6 @@ import android.graphics.drawable.ColorDrawable
 import android.inputmethodservice.InputMethodService
 import android.os.Bundle
 import android.provider.Settings
-import android.speech.RecognitionListener
-import android.speech.RecognizerIntent
-import android.speech.SpeechRecognizer
 import android.view.KeyEvent
 import android.view.View
 import android.view.inputmethod.InputMethodManager
@@ -65,15 +62,14 @@ import androidx.savedstate.SavedStateRegistryController
 import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import br.tec.lew.vibeboard.ui.theme.VibeboardTheme
+import br.tec.lew.vibeboard.speech.SpeechRecognizerController
 import kotlinx.coroutines.delay
-import java.util.Locale
 import kotlin.math.roundToInt
 
 class VibeboardService : InputMethodService(), LifecycleOwner, ViewModelStoreOwner, SavedStateRegistryOwner {
 
-    private var speechRecognizer: SpeechRecognizer? = null
+    private var speechRecognizerController: SpeechRecognizerController? = null
     private var isListening by mutableStateOf(false)
-    private var onDeviceRecognitionAvailable by mutableStateOf(false)
     private val touchableRegion = Region()
 
     private val lifecycleRegistry = LifecycleRegistry(this)
@@ -93,37 +89,23 @@ class VibeboardService : InputMethodService(), LifecycleOwner, ViewModelStoreOwn
     }
 
     private fun setupSpeechRecognizer() {
-        onDeviceRecognitionAvailable = SpeechRecognizer.isOnDeviceRecognitionAvailable(this)
-        speechRecognizer = if (onDeviceRecognitionAvailable) {
-            SpeechRecognizer.createOnDeviceSpeechRecognizer(this)
-        } else {
-            SpeechRecognizer.createSpeechRecognizer(this)
-        }
-
-        speechRecognizer?.setRecognitionListener(object : RecognitionListener {
-            override fun onReadyForSpeech(params: Bundle?) {}
-            override fun onBeginningOfSpeech() {}
-            override fun onRmsChanged(rmsdB: Float) {}
-            override fun onBufferReceived(buffer: ByteArray?) {}
-            override fun onEndOfSpeech() { isListening = false }
-            override fun onError(error: Int) { 
-                reportError(Exception("SpeechRecognizer error: $error"), mapOf("errorCode" to error))
+        speechRecognizerController = SpeechRecognizerController(
+            context = this,
+            onResults = { result ->
+                currentInputConnection?.commitText("$result ", 1)
+                isListening = false
+            },
+            onPartialResults = { partialResult ->
+                currentInputConnection?.setComposingText(partialResult, 1)
+            },
+            onError = { _ ->
                 isListening = false
                 currentInputConnection?.finishComposingText()
-            }
-            override fun onResults(results: Bundle?) {
-                results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()?.let {
-                    currentInputConnection?.commitText("$it ", 1)
-                }
+            },
+            onEndOfSpeech = {
                 isListening = false
             }
-            override fun onPartialResults(partialResults: Bundle?) {
-                partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()?.let {
-                    currentInputConnection?.setComposingText(it, 1)
-                }
-            }
-            override fun onEvent(eventType: Int, params: Bundle?) {}
-        })
+        )
     }
 
     override fun onEvaluateFullscreenMode(): Boolean = false
@@ -197,20 +179,8 @@ class VibeboardService : InputMethodService(), LifecycleOwner, ViewModelStoreOwn
     }
 
     private fun toggleListening() {
-        if (isListening) {
-            speechRecognizer?.stopListening()
-            isListening = false
-        } else {
-            val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-                putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
-                putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true)
-                putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
-                putExtra("android.speech.extra.ENABLE_FORMATTING", "punctuation")
-            }
-            speechRecognizer?.startListening(intent)
-            isListening = true
-        }
+        speechRecognizerController?.toggleListening()
+        isListening = speechRecognizerController?.isListening == true
     }
 
     override fun onWindowShown() {
@@ -234,6 +204,6 @@ class VibeboardService : InputMethodService(), LifecycleOwner, ViewModelStoreOwn
     override fun onDestroy() {
         super.onDestroy()
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_DESTROY)
-        speechRecognizer?.destroy()
+        speechRecognizerController?.destroy()
     }
 }

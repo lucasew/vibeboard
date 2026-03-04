@@ -36,6 +36,8 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
 
+private const val DRAG_THRESHOLD = 40f
+
 @Composable
 fun VibeboardKeyboard(
     isListening: Boolean,
@@ -111,7 +113,6 @@ fun VibeboardKeyboard(
                 // Microfone (Gesto Inteligente de Troca)
                 var accumulatedDragX by remember { mutableFloatStateOf(0f) }
                 var accumulatedDragY by remember { mutableFloatStateOf(0f) }
-                val dragThreshold = 40f
 
                 Box(
                     modifier = Modifier
@@ -133,18 +134,18 @@ fun VibeboardKeyboard(
                                 accumulatedDragX += dragAmount.x
                                 accumulatedDragY += dragAmount.y
 
-                                if (accumulatedDragX > dragThreshold) {
+                                if (accumulatedDragX > DRAG_THRESHOLD) {
                                     onMoveCursor(1)
                                     accumulatedDragX = 0f
-                                } else if (accumulatedDragX < -dragThreshold) {
+                                } else if (accumulatedDragX < -DRAG_THRESHOLD) {
                                     onMoveCursor(-1)
                                     accumulatedDragX = 0f
                                 }
 
-                                if (accumulatedDragY < -dragThreshold) {
+                                if (accumulatedDragY < -DRAG_THRESHOLD) {
                                     onSwitchKeyboard()
                                     accumulatedDragY = 0f
-                                } else if (accumulatedDragY > dragThreshold * 1.5f) {
+                                } else if (accumulatedDragY > DRAG_THRESHOLD * 1.5f) {
                                     onHideKeyboard()
                                     accumulatedDragY = 0f
                                 }
