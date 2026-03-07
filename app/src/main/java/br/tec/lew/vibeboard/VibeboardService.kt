@@ -54,7 +54,7 @@ import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
-import br.tec.lew.vibeboard.ui.VibeboardKeyboard
+
 import androidx.lifecycle.LifecycleRegistry
 import androidx.lifecycle.ViewModelStore
 import androidx.lifecycle.ViewModelStoreOwner
@@ -64,7 +64,7 @@ import androidx.savedstate.SavedStateRegistry
 import androidx.savedstate.SavedStateRegistryController
 import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
-import br.tec.lew.vibeboard.ui.theme.VibeboardTheme
+import br.tec.lew.vibeboard.theme.VibeboardTheme
 import kotlinx.coroutines.delay
 import java.util.Locale
 import kotlin.math.roundToInt

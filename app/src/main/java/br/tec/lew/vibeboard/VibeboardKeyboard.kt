@@ -1,4 +1,4 @@
-package br.tec.lew.vibeboard.ui
+package br.tec.lew.vibeboard
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable

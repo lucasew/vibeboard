@@ -31,7 +31,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
-import br.tec.lew.vibeboard.ui.theme.VibeboardTheme
+import br.tec.lew.vibeboard.theme.VibeboardTheme
+
+private object SetupScreenDimensions {
+    val TitleSpacerHeight = 32.dp
+    val DefaultSpacerHeight = 16.dp
+}
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -71,13 +76,13 @@ fun SetupScreen(modifier: Modifier = Modifier) {
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(text = "Vibeboard Setup", style = MaterialTheme.typography.headlineMedium)
-        Spacer(modifier = Modifier.height(32.dp))
+        Spacer(modifier = Modifier.height(SetupScreenDimensions.TitleSpacerHeight))
 
         if (!hasPermission) {
             Button(onClick = { launcher.launch(Manifest.permission.RECORD_AUDIO) }) {
                 Text("Grant Microphone Permission")
             }
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(SetupScreenDimensions.DefaultSpacerHeight))
         }
 
         Button(onClick = {
@@ -85,7 +90,7 @@ fun SetupScreen(modifier: Modifier = Modifier) {
         }) {
             Text("1. Enable Vibeboard in Settings")
         }
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(SetupScreenDimensions.DefaultSpacerHeight))
 
         Button(onClick = {
             val imm = context.getSystemService(InputMethodManager::class.java)

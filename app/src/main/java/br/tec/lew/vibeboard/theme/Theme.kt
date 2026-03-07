@@ -1,4 +1,4 @@
-package br.tec.lew.vibeboard.ui.theme
+package br.tec.lew.vibeboard.theme
 
 import android.app.Activity
 import android.os.Build
