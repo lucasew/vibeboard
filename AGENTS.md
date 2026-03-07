@@ -5,11 +5,13 @@
 This project is a simple Android application providing a voice-based keyboard (IME).
 It uses Jetpack Compose for the UI.
 
-## Structure
+## Where To Find Things (Operational Memory)
 
-- `app/src/main/java/br/tec/lew/vibeboard/`
-  - `MainActivity.kt`: The main entry point and setup screen.
-  - `VibeboardService.kt`: The core InputMethodService containing the logic and UI of the keyboard.
+- `app/src/main/java/br/tec/lew/vibeboard/MainActivity.kt` -> Main entry point and setup screen.
+- `app/src/main/java/br/tec/lew/vibeboard/VibeboardService.kt` -> Core InputMethodService containing the logic of the keyboard.
+- `app/src/main/java/br/tec/lew/vibeboard/ui/VibeboardKeyboard.kt` -> The Compose UI for the keyboard.
+- `app/src/main/java/br/tec/lew/vibeboard/ErrorHandler.kt` -> Centralized error reporting function (`reportError`).
+- `mise.toml` -> Configures the `mise` environment, tools, and executable tasks like `ci` and `test`.
 
 ## Rules
 

@@ -1,0 +1,15 @@
+[tools]
+java = "21"
+gradle = "8.5"
+
+[tasks.ci]
+run = "./gradlew check"
+description = "Run CI pipeline"
+
+[tasks.test]
+run = "./gradlew test"
+description = "Run tests"
+
+[tasks.build]
+run = "./gradlew build"
+description = "Build project"
