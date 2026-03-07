@@ -1,6 +1,7 @@
 package br.tec.lew.vibeboard
 
 import android.Manifest
+import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
@@ -81,15 +82,25 @@ fun SetupScreen(modifier: Modifier = Modifier) {
         }
 
         Button(onClick = {
-            context.startActivity(Intent(Settings.ACTION_INPUT_METHOD_SETTINGS))
+            try {
+                context.startActivity(Intent(Settings.ACTION_INPUT_METHOD_SETTINGS))
+            } catch (e: ActivityNotFoundException) {
+                reportError(e, mapOf("action" to "startActivity", "intent" to Settings.ACTION_INPUT_METHOD_SETTINGS))
+            } catch (e: Exception) {
+                reportError(e, mapOf("action" to "startActivity", "intent" to Settings.ACTION_INPUT_METHOD_SETTINGS))
+            }
         }) {
             Text("1. Enable Vibeboard in Settings")
         }
         Spacer(modifier = Modifier.height(16.dp))
 
         Button(onClick = {
-            val imm = context.getSystemService(InputMethodManager::class.java)
-            imm?.showInputMethodPicker()
+            try {
+                val imm = context.getSystemService(InputMethodManager::class.java)
+                imm?.showInputMethodPicker()
+            } catch (e: Exception) {
+                reportError(e, mapOf("action" to "showInputMethodPicker"))
+            }
         }) {
             Text("2. Select Vibeboard as Input Method")
         }

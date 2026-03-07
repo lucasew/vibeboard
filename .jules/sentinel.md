@@ -1,0 +1,1 @@
+- 2024-05-18: [Medium - Unhandled intents] Always wrap external implicit intents like startActivity or showInputMethodPicker in try/catch to prevent crashes.
