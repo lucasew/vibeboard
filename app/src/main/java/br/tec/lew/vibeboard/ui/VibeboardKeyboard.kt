@@ -36,6 +36,27 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
 
+private object KeyboardDimensions {
+    val Height = 80.dp
+    val PaddingBottom = 0.dp
+    val CornerRadius = 28.dp
+    val ShadowElevation = 10.dp
+    val RowSpacing = 12.dp
+    val RowPaddingHorizontal = 6.dp
+    val RowPaddingVertical = 2.dp
+    val KeySize = 45.dp
+    val IconSize = 21.dp
+    val MicKeyWidth = 75.dp
+    val MicIconSize = 27.dp
+    const val DragThreshold = 40f
+    const val DragHideThresholdMultiplier = 1.5f
+}
+
+private object KeyboardTiming {
+    const val BackspaceRepeatDelay = 500L
+    const val BackspaceRepeatInterval = 50L
+}
+
 @Composable
 fun VibeboardKeyboard(
     isListening: Boolean,
@@ -52,41 +73,49 @@ fun VibeboardKeyboard(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(80.dp)
+            .height(KeyboardDimensions.Height)
             .background(Color.Transparent),
         contentAlignment = Alignment.BottomCenter
     ) {
         Surface(
             modifier = Modifier
-                .padding(bottom = 0.dp)
+                .padding(bottom = KeyboardDimensions.PaddingBottom)
                 .onGloballyPositioned { coords ->
                     onLayoutCoordinates(coords)
                 },
             // Formato de "Notch" invertido: arredondado em cima, reto embaixo
-            shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp, bottomStart = 0.dp, bottomEnd = 0.dp),
+            shape = RoundedCornerShape(
+                topStart = KeyboardDimensions.CornerRadius,
+                topEnd = KeyboardDimensions.CornerRadius,
+                bottomStart = 0.dp,
+                bottomEnd = 0.dp
+            ),
             color = MaterialTheme.colorScheme.primaryContainer,
-            shadowElevation = 10.dp
+            shadowElevation = KeyboardDimensions.ShadowElevation
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                horizontalArrangement = Arrangement.spacedBy(KeyboardDimensions.RowSpacing),
+                modifier = Modifier.padding(
+                    horizontal = KeyboardDimensions.RowPaddingHorizontal,
+                    vertical = KeyboardDimensions.RowPaddingVertical
+                )
             ) {
                 // Backspace
                 var isPressingBackspace by remember { mutableStateOf(false) }
                 LaunchedEffect(isPressingBackspace) {
                     if (isPressingBackspace) {
-                        delay(500)
+                        delay(KeyboardTiming.BackspaceRepeatDelay)
                         while (isPressingBackspace) {
                             onBackspaceRepeat()
-                            delay(50)
+                            delay(KeyboardTiming.BackspaceRepeatInterval)
                         }
                     }
                 }
 
                 Box(
                     modifier = Modifier
-                        .size(45.dp)
+                        .size(KeyboardDimensions.KeySize)
                         .pointerInput(Unit) {
                             detectTapGestures(
                                 onPress = {
@@ -104,19 +133,18 @@ fun VibeboardKeyboard(
                         imageVector = Icons.AutoMirrored.Filled.Backspace,
                         contentDescription = "Backspace",
                         tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                        modifier = Modifier.size(21.dp)
+                        modifier = Modifier.size(KeyboardDimensions.IconSize)
                     )
                 }
 
                 // Microfone (Gesto Inteligente de Troca)
                 var accumulatedDragX by remember { mutableFloatStateOf(0f) }
                 var accumulatedDragY by remember { mutableFloatStateOf(0f) }
-                val dragThreshold = 40f
 
                 Box(
                     modifier = Modifier
-                        .height(45.dp)
-                        .width(75.dp)
+                        .height(KeyboardDimensions.KeySize)
+                        .width(KeyboardDimensions.MicKeyWidth)
                         .clickable { onToggleListening() }
                         .pointerInput(Unit) {
                             detectDragGestures(
@@ -133,18 +161,18 @@ fun VibeboardKeyboard(
                                 accumulatedDragX += dragAmount.x
                                 accumulatedDragY += dragAmount.y
 
-                                if (accumulatedDragX > dragThreshold) {
+                                if (accumulatedDragX > KeyboardDimensions.DragThreshold) {
                                     onMoveCursor(1)
                                     accumulatedDragX = 0f
-                                } else if (accumulatedDragX < -dragThreshold) {
+                                } else if (accumulatedDragX < -KeyboardDimensions.DragThreshold) {
                                     onMoveCursor(-1)
                                     accumulatedDragX = 0f
                                 }
 
-                                if (accumulatedDragY < -dragThreshold) {
+                                if (accumulatedDragY < -KeyboardDimensions.DragThreshold) {
                                     onSwitchKeyboard()
                                     accumulatedDragY = 0f
-                                } else if (accumulatedDragY > dragThreshold * 1.5f) {
+                                } else if (accumulatedDragY > KeyboardDimensions.DragThreshold * KeyboardDimensions.DragHideThresholdMultiplier) {
                                     onHideKeyboard()
                                     accumulatedDragY = 0f
                                 }
@@ -156,14 +184,14 @@ fun VibeboardKeyboard(
                         imageVector = Icons.Default.Mic,
                         contentDescription = "Record",
                         tint = if (isListening) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onPrimaryContainer,
-                        modifier = Modifier.size(27.dp)
+                        modifier = Modifier.size(KeyboardDimensions.MicIconSize)
                     )
                 }
 
                 // Enter
                 Box(
                     modifier = Modifier
-                        .size(45.dp)
+                        .size(KeyboardDimensions.KeySize)
                         .clickable {
                             onEnterClick()
                         },
@@ -173,7 +201,7 @@ fun VibeboardKeyboard(
                         imageVector = Icons.AutoMirrored.Filled.KeyboardReturn,
                         contentDescription = "Enter",
                         tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                        modifier = Modifier.size(21.dp)
+                        modifier = Modifier.size(KeyboardDimensions.IconSize)
                     )
                 }
             }
