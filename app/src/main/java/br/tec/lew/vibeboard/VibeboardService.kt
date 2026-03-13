@@ -118,7 +118,7 @@ class VibeboardService : InputMethodService(), LifecycleOwner, ViewModelStoreOwn
             override fun onRmsChanged(rmsdB: Float) {}
             override fun onBufferReceived(buffer: ByteArray?) {}
             override fun onEndOfSpeech() { isListening = false }
-            override fun onError(error: Int) { 
+            override fun onError(error: Int) {
                 reportError(Exception("SpeechRecognizer error: $error"), mapOf("errorCode" to error))
                 isListening = false
                 currentInputConnection?.finishComposingText()
