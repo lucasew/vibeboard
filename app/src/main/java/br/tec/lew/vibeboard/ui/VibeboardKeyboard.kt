@@ -36,6 +36,28 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
 
+/**
+ * Renders the main overlay UI for the voice keyboard.
+ *
+ * This component handles the visual presentation (the "notch" shape that sits at the
+ * bottom of the screen) and captures specialized gestures:
+ * - Backspace supports single tap for single deletion, and long press for rapid repeated deletion.
+ * - The Microphone button can be dragged to perform quick actions: left/right to move the text cursor,
+ *   down to switch keyboards, and far down to dismiss the keyboard entirely.
+ *
+ * It uses a transparent background to ensure that the system navigation bar doesn't obstruct
+ * the underlying application content.
+ *
+ * @param isListening Indicates whether the microphone is actively recording.
+ * @param onBackspaceRepeat Triggered repeatedly when the backspace button is held down.
+ * @param onBackspaceTap Triggered on a simple tap of the backspace button.
+ * @param onToggleListening Triggered to start/stop the voice recognition.
+ * @param onEnterClick Triggered when the enter button is pressed.
+ * @param onMoveCursor Triggered with direction offset (1/-1) when a swipe is registered over the mic.
+ * @param onSwitchKeyboard Triggered on a short downward swipe on the mic to invoke the system keyboard picker.
+ * @param onHideKeyboard Triggered on a long downward swipe on the mic to close the overlay.
+ * @param onLayoutCoordinates Emits layout position updates so the host service can constrain touches just to the visible bounds.
+ */
 @Composable
 fun VibeboardKeyboard(
     isListening: Boolean,

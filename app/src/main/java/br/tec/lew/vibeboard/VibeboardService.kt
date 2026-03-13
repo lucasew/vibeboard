@@ -69,6 +69,13 @@ import kotlinx.coroutines.delay
 import java.util.Locale
 import kotlin.math.roundToInt
 
+/**
+ * Core InputMethodService that provides the voice-based keyboard interface.
+ *
+ * This service implements [LifecycleOwner], [ViewModelStoreOwner], and [SavedStateRegistryOwner]
+ * to properly host Jetpack Compose within an Android `Window`, managing state and side-effects
+ * natively just like a standard Activity.
+ */
 class VibeboardService : InputMethodService(), LifecycleOwner, ViewModelStoreOwner, SavedStateRegistryOwner {
 
     private var speechRecognizer: SpeechRecognizer? = null
@@ -92,6 +99,11 @@ class VibeboardService : InputMethodService(), LifecycleOwner, ViewModelStoreOwn
         setupSpeechRecognizer()
     }
 
+    /**
+     * Initializes the [SpeechRecognizer]. Prefers on-device recognition if available to ensure privacy
+     * and offline capability. Handles audio processing events and routes any recognition errors to the
+     * centralized [reportError] function instead of failing silently.
+     */
     private fun setupSpeechRecognizer() {
         onDeviceRecognitionAvailable = SpeechRecognizer.isOnDeviceRecognitionAvailable(this)
         speechRecognizer = if (onDeviceRecognitionAvailable) {
@@ -128,6 +140,11 @@ class VibeboardService : InputMethodService(), LifecycleOwner, ViewModelStoreOwn
 
     override fun onEvaluateFullscreenMode(): Boolean = false
 
+    /**
+     * Shrinks the touchable region of the keyboard window to strictly cover the visible UI.
+     * This ensures that taps on transparent parts of the screen are properly passed down
+     * to the underlying application.
+     */
     override fun onComputeInsets(outInsets: Insets?) {
         super.onComputeInsets(outInsets)
         if (outInsets != null) {
@@ -139,6 +156,11 @@ class VibeboardService : InputMethodService(), LifecycleOwner, ViewModelStoreOwn
         }
     }
 
+    /**
+     * Prepares and attaches the Jetpack Compose view hierarchy.
+     * Injects the required lifecycle and state registries into the `decorView` so that
+     * Compose handles navigation and state exactly as it would within a conventional Activity.
+     */
     override fun onCreateInputView(): View {
         return ComposeView(this).apply {
             window?.window?.decorView?.let { decor ->
@@ -190,12 +212,23 @@ class VibeboardService : InputMethodService(), LifecycleOwner, ViewModelStoreOwn
         }
     }
 
+    /**
+     * Shifts the input cursor left or right by injecting DPAD key events.
+     *
+     * @param direction Positive integer for right, negative for left.
+     */
     private fun moveCursor(direction: Int) {
         val keyEvent = if (direction > 0) KeyEvent.KEYCODE_DPAD_RIGHT else KeyEvent.KEYCODE_DPAD_LEFT
         currentInputConnection?.sendKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, keyEvent))
         currentInputConnection?.sendKeyEvent(KeyEvent(KeyEvent.ACTION_UP, keyEvent))
     }
 
+    /**
+     * Toggles the active state of the [SpeechRecognizer].
+     *
+     * When starting to listen, requests free-form recognition, prioritizes offline evaluation,
+     * and enables automatic punctuation parsing if supported by the Android version.
+     */
     private fun toggleListening() {
         if (isListening) {
             speechRecognizer?.stopListening()
