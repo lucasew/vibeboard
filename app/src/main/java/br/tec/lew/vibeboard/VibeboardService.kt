@@ -52,43 +52,28 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleOwner
 import br.tec.lew.vibeboard.ui.VibeboardKeyboard
-import androidx.lifecycle.LifecycleRegistry
-import androidx.lifecycle.ViewModelStore
-import androidx.lifecycle.ViewModelStoreOwner
 import androidx.lifecycle.setViewTreeLifecycleOwner
 import androidx.lifecycle.setViewTreeViewModelStoreOwner
-import androidx.savedstate.SavedStateRegistry
-import androidx.savedstate.SavedStateRegistryController
-import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import br.tec.lew.vibeboard.ui.theme.VibeboardTheme
 import kotlinx.coroutines.delay
 import java.util.Locale
 import kotlin.math.roundToInt
 
-class VibeboardService : InputMethodService(), LifecycleOwner, ViewModelStoreOwner, SavedStateRegistryOwner {
+class VibeboardService : InputMethodService() {
 
     private var speechRecognizer: SpeechRecognizer? = null
     private var isListening by mutableStateOf(false)
     private var onDeviceRecognitionAvailable by mutableStateOf(false)
     private val touchableRegion = Region()
 
-    private val lifecycleRegistry = LifecycleRegistry(this)
-    override val lifecycle: Lifecycle get() = lifecycleRegistry
-
-    private val store = ViewModelStore()
-    override val viewModelStore: ViewModelStore get() = store
-
-    private val savedStateRegistryController = SavedStateRegistryController.create(this)
-    override val savedStateRegistry: SavedStateRegistry get() = savedStateRegistryController.savedStateRegistry
+    private val composeLifecycleOwner = ComposeLifecycleOwner()
+    private val inputController = InputController { currentInputConnection }
 
     override fun onCreate() {
         super.onCreate()
-        savedStateRegistryController.performRestore(null)
-        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_CREATE)
+        composeLifecycleOwner.onCreate()
         setupSpeechRecognizer()
     }
 
@@ -109,17 +94,17 @@ class VibeboardService : InputMethodService(), LifecycleOwner, ViewModelStoreOwn
             override fun onError(error: Int) { 
                 reportError(Exception("SpeechRecognizer error: $error"), mapOf("errorCode" to error))
                 isListening = false
-                currentInputConnection?.finishComposingText()
+                inputController.finishComposingText()
             }
             override fun onResults(results: Bundle?) {
                 results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()?.let {
-                    currentInputConnection?.commitText("$it ", 1)
+                    inputController.commitText("$it ", 1)
                 }
                 isListening = false
             }
             override fun onPartialResults(partialResults: Bundle?) {
                 partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()?.let {
-                    currentInputConnection?.setComposingText(it, 1)
+                    inputController.setComposingText(it, 1)
                 }
             }
             override fun onEvent(eventType: Int, params: Bundle?) {}
@@ -142,9 +127,9 @@ class VibeboardService : InputMethodService(), LifecycleOwner, ViewModelStoreOwn
     override fun onCreateInputView(): View {
         return ComposeView(this).apply {
             window?.window?.decorView?.let { decor ->
-                decor.setViewTreeLifecycleOwner(this@VibeboardService)
-                decor.setViewTreeViewModelStoreOwner(this@VibeboardService)
-                decor.setViewTreeSavedStateRegistryOwner(this@VibeboardService)
+                decor.setViewTreeLifecycleOwner(composeLifecycleOwner)
+                decor.setViewTreeViewModelStoreOwner(composeLifecycleOwner)
+                decor.setViewTreeSavedStateRegistryOwner(composeLifecycleOwner)
             }
 
             setContent {
@@ -152,19 +137,15 @@ class VibeboardService : InputMethodService(), LifecycleOwner, ViewModelStoreOwn
                     VibeboardKeyboard(
                         isListening = isListening,
                         onBackspaceRepeat = {
-                            currentInputConnection?.deleteSurroundingText(1, 0)
+                            inputController.deleteSurroundingText(1, 0)
                         },
                         onBackspaceTap = {
-                            currentInputConnection?.finishComposingText()
-                            currentInputConnection?.deleteSurroundingText(1, 0)
+                            inputController.finishComposingText()
+                            inputController.deleteSurroundingText(1, 0)
                         },
                         onToggleListening = { toggleListening() },
-                        onEnterClick = {
-                            currentInputConnection?.finishComposingText()
-                            currentInputConnection?.sendKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_ENTER))
-                            currentInputConnection?.sendKeyEvent(KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_ENTER))
-                        },
-                        onMoveCursor = { moveCursor(it) },
+                        onEnterClick = { inputController.sendEnterEvent() },
+                        onMoveCursor = { inputController.moveCursor(it) },
                         onSwitchKeyboard = {
                             val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
                             val token = window.window?.attributes?.token
@@ -188,12 +169,6 @@ class VibeboardService : InputMethodService(), LifecycleOwner, ViewModelStoreOwn
                 }
             }
         }
-    }
-
-    private fun moveCursor(direction: Int) {
-        val keyEvent = if (direction > 0) KeyEvent.KEYCODE_DPAD_RIGHT else KeyEvent.KEYCODE_DPAD_LEFT
-        currentInputConnection?.sendKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, keyEvent))
-        currentInputConnection?.sendKeyEvent(KeyEvent(KeyEvent.ACTION_UP, keyEvent))
     }
 
     private fun toggleListening() {
@@ -221,19 +196,17 @@ class VibeboardService : InputMethodService(), LifecycleOwner, ViewModelStoreOwn
             win.navigationBarColor = android.graphics.Color.TRANSPARENT
             win.setDecorFitsSystemWindows(false)
         }
-        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_START)
-        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_RESUME)
+        composeLifecycleOwner.onResume()
     }
 
     override fun onWindowHidden() {
         super.onWindowHidden()
-        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_PAUSE)
-        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_STOP)
+        composeLifecycleOwner.onPause()
     }
 
     override fun onDestroy() {
         super.onDestroy()
-        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_DESTROY)
+        composeLifecycleOwner.onDestroy()
         speechRecognizer?.destroy()
     }
 }
