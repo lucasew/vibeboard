@@ -56,7 +56,8 @@ import kotlinx.coroutines.delay
  * @param onMoveCursor Triggered with direction offset (1/-1) when a swipe is registered over the mic.
  * @param onSwitchKeyboard Triggered on a short downward swipe on the mic to invoke the system keyboard picker.
  * @param onHideKeyboard Triggered on a long downward swipe on the mic to close the overlay.
- * @param onLayoutCoordinates Emits layout position updates so the host service can constrain touches just to the visible bounds.
+ * @param onLayoutCoordinates Emits layout position updates so the host service can constrain touches
+ * just to the visible bounds.
  */
 @Composable
 fun VibeboardKeyboard(

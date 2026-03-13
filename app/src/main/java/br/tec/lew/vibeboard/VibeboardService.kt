@@ -100,9 +100,9 @@ class VibeboardService : InputMethodService(), LifecycleOwner, ViewModelStoreOwn
     }
 
     /**
-     * Initializes the [SpeechRecognizer]. Prefers on-device recognition if available to ensure privacy
-     * and offline capability. Handles audio processing events and routes any recognition errors to the
-     * centralized [reportError] function instead of failing silently.
+     * Initializes the [SpeechRecognizer]. Prefers on-device recognition if available to ensure
+     * privacy and offline capability. Handles audio processing events and routes any recognition
+     * errors to the centralized [reportError] function instead of failing silently.
      */
     private fun setupSpeechRecognizer() {
         onDeviceRecognitionAvailable = SpeechRecognizer.isOnDeviceRecognitionAvailable(this)
