@@ -1,0 +1,1 @@
+- 2026-03-16: Suppressed deprecated Android API calls in InputMethodService.

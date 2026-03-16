@@ -168,6 +168,7 @@ class VibeboardService : InputMethodService(), LifecycleOwner, ViewModelStoreOwn
                         onSwitchKeyboard = {
                             val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
                             val token = window.window?.attributes?.token
+                            @Suppress("DEPRECATION")
                             if (!imm.switchToLastInputMethod(token)) {
                                 imm.showInputMethodPicker()
                             }
@@ -213,6 +214,7 @@ class VibeboardService : InputMethodService(), LifecycleOwner, ViewModelStoreOwn
         }
     }
 
+    @Suppress("DEPRECATION")
     override fun onWindowShown() {
         super.onWindowShown()
         window?.window?.let { win ->
