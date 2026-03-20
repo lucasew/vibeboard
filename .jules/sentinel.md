@@ -1,1 +1,0 @@
-- 2026-03-20: [Medium] unhandled exceptions in external service calls like SpeechRecognizer which can cause DoS or crashes.
