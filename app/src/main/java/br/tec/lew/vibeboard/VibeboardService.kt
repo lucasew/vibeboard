@@ -198,13 +198,8 @@ class VibeboardService : InputMethodService(), LifecycleOwner, ViewModelStoreOwn
 
     private fun toggleListening() {
         if (isListening) {
-            try {
-                speechRecognizer?.stopListening()
-            } catch (e: Exception) {
-                reportError(e, mapOf("action" to "stopListening"))
-            } finally {
-                isListening = false
-            }
+            speechRecognizer?.stopListening()
+            isListening = false
         } else {
             val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
@@ -213,13 +208,8 @@ class VibeboardService : InputMethodService(), LifecycleOwner, ViewModelStoreOwn
                 putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
                 putExtra("android.speech.extra.ENABLE_FORMATTING", "punctuation")
             }
-            try {
-                speechRecognizer?.startListening(intent)
-                isListening = true
-            } catch (e: Exception) {
-                reportError(e, mapOf("action" to "startListening"))
-                isListening = false
-            }
+            speechRecognizer?.startListening(intent)
+            isListening = true
         }
     }
 
