@@ -33,6 +33,13 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import br.tec.lew.vibeboard.ui.theme.VibeboardTheme
 
+/**
+ * Entry point for initial user onboarding and setup.
+ *
+ * This activity is an orchestrator to guide the user through the
+ * required system-level configuration steps to use the IME.
+ * It is not part of the active keyboard lifecycle (handled by [VibeboardService]).
+ */
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -47,6 +54,16 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+/**
+ * Orchestrates the multi-step configuration required to activate the IME.
+ *
+ * Provides actionable triggers for:
+ * 1. Requesting `RECORD_AUDIO` permission for speech recognition.
+ * 2. Launching system Input Method Settings (mandatory user action, cannot be toggled programmatically).
+ * 3. Showing the Input Method Picker to select this IME as active.
+ *
+ * Uses explicit intent launches to system components, which depend on system resolution.
+ */
 @Composable
 fun SetupScreen(modifier: Modifier = Modifier) {
     val context = LocalContext.current
