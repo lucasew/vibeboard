@@ -1,0 +1,1 @@
+- 2026-04-05: Remove unused resources and obsolete API level checks.
