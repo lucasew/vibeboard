@@ -4,7 +4,9 @@ import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
+import android.os.Build
 import android.provider.Settings
+import android.view.WindowManager
 import android.view.inputmethod.InputMethodManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -36,6 +38,15 @@ import br.tec.lew.vibeboard.ui.theme.VibeboardTheme
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Prevent Tapjacking (overlay attacks)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            window.setHideOverlayWindows(true)
+        } else {
+            // Provide a fallback or accept the risk, FLAG_SECURE blocks screenshots as a side effect.
+            window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        }
+
         enableEdgeToEdge()
         setContent {
             VibeboardTheme {

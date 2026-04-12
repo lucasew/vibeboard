@@ -1,0 +1,1 @@
+- 2025-04-12: [High] Missing tapjacking protection on sensitive screens — always set window.setHideOverlayWindows(true) to prevent overlay attacks.
