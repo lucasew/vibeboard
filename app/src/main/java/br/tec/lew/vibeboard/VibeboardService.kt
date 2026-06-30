@@ -94,10 +94,15 @@ class VibeboardService : InputMethodService(), LifecycleOwner, ViewModelStoreOwn
 
     private fun setupSpeechRecognizer() {
         onDeviceRecognitionAvailable = SpeechRecognizer.isOnDeviceRecognitionAvailable(this)
-        speechRecognizer = if (onDeviceRecognitionAvailable) {
-            SpeechRecognizer.createOnDeviceSpeechRecognizer(this)
-        } else {
-            SpeechRecognizer.createSpeechRecognizer(this)
+        try {
+            speechRecognizer = if (onDeviceRecognitionAvailable) {
+                SpeechRecognizer.createOnDeviceSpeechRecognizer(this)
+            } else {
+                SpeechRecognizer.createSpeechRecognizer(this)
+            }
+        } catch (e: Exception) {
+            reportError(e, mapOf("action" to "createSpeechRecognizer", "onDevice" to onDeviceRecognitionAvailable))
+            return
         }
 
         speechRecognizer?.setRecognitionListener(object : RecognitionListener {
@@ -166,10 +171,14 @@ class VibeboardService : InputMethodService(), LifecycleOwner, ViewModelStoreOwn
                         },
                         onMoveCursor = { moveCursor(it) },
                         onSwitchKeyboard = {
-                            val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
-                            val token = window.window?.attributes?.token
-                            if (!imm.switchToLastInputMethod(token)) {
-                                imm.showInputMethodPicker()
+                            try {
+                                val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+                                val token = window.window?.attributes?.token
+                                if (!imm.switchToLastInputMethod(token)) {
+                                    imm.showInputMethodPicker()
+                                }
+                            } catch (e: Exception) {
+                                reportError(e, mapOf("action" to "switchKeyboard"))
                             }
                         },
                         onHideKeyboard = { requestHideSelf(0) },
@@ -198,7 +207,11 @@ class VibeboardService : InputMethodService(), LifecycleOwner, ViewModelStoreOwn
 
     private fun toggleListening() {
         if (isListening) {
-            speechRecognizer?.stopListening()
+            try {
+                speechRecognizer?.stopListening()
+            } catch (e: Exception) {
+                reportError(e, mapOf("action" to "stopListening"))
+            }
             isListening = false
         } else {
             val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
@@ -208,8 +221,13 @@ class VibeboardService : InputMethodService(), LifecycleOwner, ViewModelStoreOwn
                 putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
                 putExtra("android.speech.extra.ENABLE_FORMATTING", "punctuation")
             }
-            speechRecognizer?.startListening(intent)
-            isListening = true
+            try {
+                speechRecognizer?.startListening(intent)
+                isListening = true
+            } catch (e: Exception) {
+                reportError(e, mapOf("action" to "startListening"))
+                isListening = false
+            }
         }
     }
 
@@ -234,6 +252,10 @@ class VibeboardService : InputMethodService(), LifecycleOwner, ViewModelStoreOwn
     override fun onDestroy() {
         super.onDestroy()
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_DESTROY)
-        speechRecognizer?.destroy()
+        try {
+            speechRecognizer?.destroy()
+        } catch (e: Exception) {
+            reportError(e, mapOf("action" to "destroySpeechRecognizer"))
+        }
     }
 }
