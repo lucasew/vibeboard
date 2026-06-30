@@ -1,0 +1,1 @@
+- 2026-06-30: Wrap external system interactions (SpeechRecognizer, InputMethodManager, Settings intents) in try-catch blocks using centralized error reporting.
