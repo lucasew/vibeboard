@@ -173,9 +173,16 @@ class VibeboardService : InputMethodService(), LifecycleOwner, ViewModelStoreOwn
                         onSwitchKeyboard = {
                             try {
                                 val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
-                                val token = window.window?.attributes?.token
-                                if (!imm.switchToLastInputMethod(token)) {
-                                    imm.showInputMethodPicker()
+                                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+                                    if (!switchToPreviousInputMethod()) {
+                                        imm.showInputMethodPicker()
+                                    }
+                                } else {
+                                    val token = window.window?.attributes?.token
+                                    @Suppress("DEPRECATION")
+                                    if (!imm.switchToLastInputMethod(token)) {
+                                        imm.showInputMethodPicker()
+                                    }
                                 }
                             } catch (e: Exception) {
                                 reportError(e, mapOf("action" to "switchKeyboard"))
@@ -236,8 +243,9 @@ class VibeboardService : InputMethodService(), LifecycleOwner, ViewModelStoreOwn
         window?.window?.let { win ->
             win.setBackgroundDrawable(ColorDrawable(android.graphics.Color.TRANSPARENT))
             win.setDimAmount(0f)
+            @Suppress("DEPRECATION")
             win.navigationBarColor = android.graphics.Color.TRANSPARENT
-            win.setDecorFitsSystemWindows(false)
+            androidx.core.view.WindowCompat.setDecorFitsSystemWindows(win, false)
         }
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_START)
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_RESUME)
