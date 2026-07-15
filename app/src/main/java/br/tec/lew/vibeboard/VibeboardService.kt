@@ -7,54 +7,20 @@ import android.graphics.Region
 import android.graphics.drawable.ColorDrawable
 import android.inputmethodservice.InputMethodService
 import android.os.Bundle
-import android.provider.Settings
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import android.view.KeyEvent
 import android.view.View
 import android.view.inputmethod.InputMethodManager
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Backspace
-import androidx.compose.material.icons.automirrored.filled.KeyboardReturn
-import androidx.compose.material.icons.filled.Mic
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.ComposeView
-import androidx.compose.ui.unit.dp
+import androidx.core.view.WindowCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
-import br.tec.lew.vibeboard.ui.VibeboardKeyboard
 import androidx.lifecycle.LifecycleRegistry
 import androidx.lifecycle.ViewModelStore
 import androidx.lifecycle.ViewModelStoreOwner
@@ -64,8 +30,8 @@ import androidx.savedstate.SavedStateRegistry
 import androidx.savedstate.SavedStateRegistryController
 import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
+import br.tec.lew.vibeboard.ui.VibeboardKeyboard
 import br.tec.lew.vibeboard.ui.theme.VibeboardTheme
-import kotlinx.coroutines.delay
 import java.util.Locale
 import kotlin.math.roundToInt
 
@@ -111,8 +77,14 @@ class VibeboardService : InputMethodService(), LifecycleOwner, ViewModelStoreOwn
             override fun onRmsChanged(rmsdB: Float) {}
             override fun onBufferReceived(buffer: ByteArray?) {}
             override fun onEndOfSpeech() { isListening = false }
-            override fun onError(error: Int) { 
-                reportError(Exception("SpeechRecognizer error: $error"), mapOf("errorCode" to error))
+            override fun onError(error: Int) {
+                // Client / no-match / timeout / cancelled are expected recognition outcomes.
+                if (error !in EXPECTED_SPEECH_ERRORS) {
+                    reportError(
+                        Exception("SpeechRecognizer error: $error"),
+                        mapOf("errorCode" to error)
+                    )
+                }
                 isListening = false
                 currentInputConnection?.finishComposingText()
             }
@@ -173,8 +145,8 @@ class VibeboardService : InputMethodService(), LifecycleOwner, ViewModelStoreOwn
                         onSwitchKeyboard = {
                             try {
                                 val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
-                                val token = window.window?.attributes?.token
-                                if (!imm.switchToLastInputMethod(token)) {
+                                // minSdk 28+: prefer non-deprecated IME API (token-based switch is deprecated).
+                                if (!switchToPreviousInputMethod()) {
                                     imm.showInputMethodPicker()
                                 }
                             } catch (e: Exception) {
@@ -236,8 +208,9 @@ class VibeboardService : InputMethodService(), LifecycleOwner, ViewModelStoreOwn
         window?.window?.let { win ->
             win.setBackgroundDrawable(ColorDrawable(android.graphics.Color.TRANSPARENT))
             win.setDimAmount(0f)
+            @Suppress("DEPRECATION")
             win.navigationBarColor = android.graphics.Color.TRANSPARENT
-            win.setDecorFitsSystemWindows(false)
+            WindowCompat.setDecorFitsSystemWindows(win, false)
         }
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_START)
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_RESUME)
@@ -252,10 +225,20 @@ class VibeboardService : InputMethodService(), LifecycleOwner, ViewModelStoreOwn
     override fun onDestroy() {
         super.onDestroy()
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_DESTROY)
+        store.clear()
         try {
             speechRecognizer?.destroy()
         } catch (e: Exception) {
             reportError(e, mapOf("action" to "destroySpeechRecognizer"))
         }
+    }
+
+    companion object {
+        /** Recognition outcomes that are normal for voice input, not unexpected failures. */
+        private val EXPECTED_SPEECH_ERRORS = setOf(
+            SpeechRecognizer.ERROR_NO_MATCH,
+            SpeechRecognizer.ERROR_SPEECH_TIMEOUT,
+            SpeechRecognizer.ERROR_CLIENT,
+        )
     }
 }
