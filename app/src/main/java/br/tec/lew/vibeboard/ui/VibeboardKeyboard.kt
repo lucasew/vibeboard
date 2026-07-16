@@ -21,10 +21,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -34,7 +32,14 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+
+/** Delay before hold-to-repeat starts; short presses only fire a single delete. */
+private const val BACKSPACE_REPEAT_INITIAL_DELAY_MS = 500L
+/** Interval between repeated deletes while backspace is held. */
+private const val BACKSPACE_REPEAT_INTERVAL_MS = 50L
 
 @Composable
 fun VibeboardKeyboard(
@@ -72,29 +77,34 @@ fun VibeboardKeyboard(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
             ) {
-                // Backspace
-                var isPressingBackspace by remember { mutableStateOf(false) }
-                LaunchedEffect(isPressingBackspace) {
-                    if (isPressingBackspace) {
-                        delay(500)
-                        while (isPressingBackspace) {
-                            onBackspaceRepeat()
-                            delay(50)
-                        }
-                    }
-                }
-
+                // Backspace: short press deletes once; hold repeats after initial delay.
+                // Must not also fire onTap after a hold — that caused an extra delete on release.
                 Box(
                     modifier = Modifier
                         .size(45.dp)
-                        .pointerInput(Unit) {
+                        .pointerInput(onBackspaceTap, onBackspaceRepeat) {
                             detectTapGestures(
                                 onPress = {
-                                    isPressingBackspace = true
-                                    try { awaitRelease() } finally { isPressingBackspace = false }
-                                },
-                                onTap = {
-                                    onBackspaceTap()
+                                    // coroutineScope gives a CoroutineScope inside PressGestureScope.
+                                    coroutineScope {
+                                        var repeated = false
+                                        val repeatJob = launch {
+                                            delay(BACKSPACE_REPEAT_INITIAL_DELAY_MS)
+                                            repeated = true
+                                            while (true) {
+                                                onBackspaceRepeat()
+                                                delay(BACKSPACE_REPEAT_INTERVAL_MS)
+                                            }
+                                        }
+                                        try {
+                                            val released = tryAwaitRelease()
+                                            if (released && !repeated) {
+                                                onBackspaceTap()
+                                            }
+                                        } finally {
+                                            repeatJob.cancel()
+                                        }
+                                    }
                                 }
                             )
                         },
