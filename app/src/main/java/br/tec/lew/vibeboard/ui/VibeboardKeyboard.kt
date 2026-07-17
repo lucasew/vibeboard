@@ -2,7 +2,8 @@ package br.tec.lew.vibeboard.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -21,16 +22,13 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
@@ -40,6 +38,17 @@ import kotlinx.coroutines.launch
 private const val BACKSPACE_REPEAT_INITIAL_DELAY_MS = 500L
 /** Interval between repeated deletes while backspace is held. */
 private const val BACKSPACE_REPEAT_INTERVAL_MS = 50L
+
+/**
+ * Drag distance (dp) on the mic control before cursor / switch-keyboard actions fire.
+ * Kept in dp so sensitivity is stable across screen densities (raw px was too tight on xxxhdpi).
+ */
+private val MIC_DRAG_THRESHOLD_DP = 40.dp
+
+/**
+ * Downward hide uses a higher threshold than left/right/up so accidental hides are less common.
+ */
+private const val MIC_HIDE_DRAG_MULTIPLIER = 1.5f
 
 @Composable
 fun VibeboardKeyboard(
@@ -54,6 +63,10 @@ fun VibeboardKeyboard(
     onLayoutCoordinates: (LayoutCoordinates) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val density = LocalDensity.current
+    val dragThresholdPx = with(density) { MIC_DRAG_THRESHOLD_DP.toPx() }
+    val hideDragThresholdPx = dragThresholdPx * MIC_HIDE_DRAG_MULTIPLIER
+
     Box(
         modifier = modifier
             .fillMaxWidth()
@@ -67,7 +80,7 @@ fun VibeboardKeyboard(
                 .onGloballyPositioned { coords ->
                     onLayoutCoordinates(coords)
                 },
-            // Formato de "Notch" invertido: arredondado em cima, reto embaixo
+            // Inverted notch: rounded top, flat bottom against the nav bar.
             shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp, bottomStart = 0.dp, bottomEnd = 0.dp),
             color = MaterialTheme.colorScheme.primaryContainer,
             shadowElevation = 10.dp
@@ -118,45 +131,61 @@ fun VibeboardKeyboard(
                     )
                 }
 
-                // Microfone (Gesto Inteligente de Troca)
-                var accumulatedDragX by remember { mutableFloatStateOf(0f) }
-                var accumulatedDragY by remember { mutableFloatStateOf(0f) }
-                val dragThreshold = 40f
-
+                // Mic: tap toggles listening; drag left/right moves cursor, up switches IME, down hides.
+                // Single pointer handler so drag and tap cannot both fire (clickable + detectDragGestures did).
                 Box(
                     modifier = Modifier
                         .height(45.dp)
                         .width(75.dp)
-                        .clickable { onToggleListening() }
-                        .pointerInput(Unit) {
-                            detectDragGestures(
-                                onDragEnd = {
-                                    accumulatedDragX = 0f
-                                    accumulatedDragY = 0f
-                                },
-                                onDragCancel = {
-                                    accumulatedDragX = 0f
-                                    accumulatedDragY = 0f
-                                }
-                            ) { change, dragAmount ->
-                                change.consume()
-                                accumulatedDragX += dragAmount.x
-                                accumulatedDragY += dragAmount.y
+                        .pointerInput(
+                            dragThresholdPx,
+                            hideDragThresholdPx,
+                            onToggleListening,
+                            onMoveCursor,
+                            onSwitchKeyboard,
+                            onHideKeyboard
+                        ) {
+                            awaitEachGesture {
+                                val down = awaitFirstDown()
+                                var accumulatedDragX = 0f
+                                var accumulatedDragY = 0f
+                                var didSwipeAction = false
 
-                                if (accumulatedDragX > dragThreshold) {
-                                    onMoveCursor(1)
-                                    accumulatedDragX = 0f
-                                } else if (accumulatedDragX < -dragThreshold) {
-                                    onMoveCursor(-1)
-                                    accumulatedDragX = 0f
-                                }
+                                while (true) {
+                                    val event = awaitPointerEvent()
+                                    val change = event.changes.firstOrNull { it.id == down.id } ?: break
 
-                                if (accumulatedDragY < -dragThreshold) {
-                                    onSwitchKeyboard()
-                                    accumulatedDragY = 0f
-                                } else if (accumulatedDragY > dragThreshold * 1.5f) {
-                                    onHideKeyboard()
-                                    accumulatedDragY = 0f
+                                    if (!change.pressed) {
+                                        if (!didSwipeAction) {
+                                            onToggleListening()
+                                        }
+                                        break
+                                    }
+
+                                    val dragAmount = change.position - change.previousPosition
+                                    change.consume()
+                                    accumulatedDragX += dragAmount.x
+                                    accumulatedDragY += dragAmount.y
+
+                                    if (accumulatedDragX > dragThresholdPx) {
+                                        onMoveCursor(1)
+                                        accumulatedDragX = 0f
+                                        didSwipeAction = true
+                                    } else if (accumulatedDragX < -dragThresholdPx) {
+                                        onMoveCursor(-1)
+                                        accumulatedDragX = 0f
+                                        didSwipeAction = true
+                                    }
+
+                                    if (accumulatedDragY < -dragThresholdPx) {
+                                        onSwitchKeyboard()
+                                        accumulatedDragY = 0f
+                                        didSwipeAction = true
+                                    } else if (accumulatedDragY > hideDragThresholdPx) {
+                                        onHideKeyboard()
+                                        accumulatedDragY = 0f
+                                        didSwipeAction = true
+                                    }
                                 }
                             }
                         },
