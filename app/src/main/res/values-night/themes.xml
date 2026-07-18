@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Transparent system bars match MainActivity enableEdgeToEdge() first frame. -->
-    <style name="Theme.Vibeboard" parent="android:Theme.Material.Light.NoActionBar">
+    <!-- Dark window background so Compose dark schemes do not flash a light shell. -->
+    <style name="Theme.Vibeboard" parent="android:Theme.Material.NoActionBar">
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
     </style>
