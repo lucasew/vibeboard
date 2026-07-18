@@ -23,7 +23,10 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            // Ship a shrunk release: unused Compose icons/resources dominate APK size
+            // when minify is off (material-icons-extended alone is tens of MB).
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
