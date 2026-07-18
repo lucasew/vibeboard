@@ -186,6 +186,15 @@ class VibeboardService : InputMethodService(), LifecycleOwner, ViewModelStoreOwn
             }
             isListening = false
         } else {
+            val recognizer = speechRecognizer
+            if (recognizer == null) {
+                // createSpeechRecognizer failed earlier; do not flip UI into a stuck "listening" state.
+                reportError(
+                    IllegalStateException("SpeechRecognizer not available"),
+                    mapOf("action" to "startListening", "onDevice" to onDeviceRecognitionAvailable)
+                )
+                return
+            }
             val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
@@ -194,13 +203,28 @@ class VibeboardService : InputMethodService(), LifecycleOwner, ViewModelStoreOwn
                 putExtra("android.speech.extra.ENABLE_FORMATTING", "punctuation")
             }
             try {
-                speechRecognizer?.startListening(intent)
+                recognizer.startListening(intent)
                 isListening = true
             } catch (e: Exception) {
                 reportError(e, mapOf("action" to "startListening"))
                 isListening = false
             }
         }
+    }
+
+    /**
+     * Drop an in-flight recognition session without waiting for final results.
+     * Used when the IME is no longer visible so partial text is not committed late.
+     */
+    private fun abandonSpeechIfListening(reason: String) {
+        if (!isListening) return
+        try {
+            speechRecognizer?.cancel()
+        } catch (e: Exception) {
+            reportError(e, mapOf("action" to "cancelSpeech", "reason" to reason))
+        }
+        isListening = false
+        currentInputConnection?.finishComposingText()
     }
 
     override fun onWindowShown() {
@@ -218,11 +242,15 @@ class VibeboardService : InputMethodService(), LifecycleOwner, ViewModelStoreOwn
 
     override fun onWindowHidden() {
         super.onWindowHidden()
+        // Hide/switch-away must stop the mic; otherwise recognition can keep running and
+        // commit composing text after the user has left the field.
+        abandonSpeechIfListening("onWindowHidden")
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_PAUSE)
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_STOP)
     }
 
     override fun onDestroy() {
+        abandonSpeechIfListening("onDestroy")
         super.onDestroy()
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_DESTROY)
         store.clear()
@@ -231,6 +259,7 @@ class VibeboardService : InputMethodService(), LifecycleOwner, ViewModelStoreOwn
         } catch (e: Exception) {
             reportError(e, mapOf("action" to "destroySpeechRecognizer"))
         }
+        speechRecognizer = null
     }
 
     companion object {
