@@ -136,11 +136,7 @@ class VibeboardService : InputMethodService(), LifecycleOwner, ViewModelStoreOwn
                             currentInputConnection?.deleteSurroundingText(1, 0)
                         },
                         onToggleListening = { toggleListening() },
-                        onEnterClick = {
-                            currentInputConnection?.finishComposingText()
-                            currentInputConnection?.sendKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_ENTER))
-                            currentInputConnection?.sendKeyEvent(KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_ENTER))
-                        },
+                        onEnterClick = { performEnter() },
                         onMoveCursor = { moveCursor(it) },
                         onSwitchKeyboard = {
                             try {
@@ -175,6 +171,27 @@ class VibeboardService : InputMethodService(), LifecycleOwner, ViewModelStoreOwn
         val keyEvent = if (direction > 0) KeyEvent.KEYCODE_DPAD_RIGHT else KeyEvent.KEYCODE_DPAD_LEFT
         currentInputConnection?.sendKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, keyEvent))
         currentInputConnection?.sendKeyEvent(KeyEvent(KeyEvent.ACTION_UP, keyEvent))
+    }
+
+    /**
+     * Honor the focused field's IME action (Search, Go, Send, Done, Next) when present.
+     * Raw KEYCODE_ENTER alone often does nothing useful on single-line action fields.
+     */
+    private fun performEnter() {
+        val ic = currentInputConnection ?: return
+        ic.finishComposingText()
+        val info = currentInputEditorInfo
+        val action = if (info != null) {
+            resolveEnterEditorAction(info.imeOptions, info.actionId)
+        } else {
+            null
+        }
+        if (action != null && ic.performEditorAction(action)) {
+            return
+        }
+        // Multiline / no action / performEditorAction declined → physical Enter.
+        ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_ENTER))
+        ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_ENTER))
     }
 
     private fun toggleListening() {
