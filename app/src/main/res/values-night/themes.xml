@@ -1,8 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Dark window background so Compose dark schemes do not flash a light shell. -->
+    <!--
+      Dark Material parent avoids a light framework flash before Compose paints.
+      Transparent windowBackground matches the IME fullscreen shell (see values/).
+    -->
     <style name="Theme.Vibeboard" parent="android:Theme.Material.NoActionBar">
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:colorBackgroundCacheHint">@null</item>
     </style>
 </resources>

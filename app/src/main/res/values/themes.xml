@@ -1,8 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Transparent system bars match MainActivity enableEdgeToEdge() first frame. -->
+    <!--
+      Transparent system bars match MainActivity enableEdgeToEdge() first frame.
+      Transparent windowBackground matches VibeboardService: the IME window is
+      fullscreen with a bottom notch; an opaque Material shell would veil the
+      host app until onWindowShown sets a transparent ColorDrawable.
+    -->
     <style name="Theme.Vibeboard" parent="android:Theme.Material.Light.NoActionBar">
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:colorBackgroundCacheHint">@null</item>
     </style>
 </resources>
