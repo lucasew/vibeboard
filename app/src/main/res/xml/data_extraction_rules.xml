@@ -1,19 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <data-extraction-rules>
     <cloud-backup>
-        <!-- Back up all app data -->
+        <!-- Back up all app data. No device-transfer section: when that section is
+             absent, D2D transfer is fully enabled (same as these include-all rules). -->
         <include domain="root" path="."/>
         <include domain="file" path="."/>
         <include domain="database" path="."/>
         <include domain="sharedpref" path="."/>
         <include domain="external" path="."/>
     </cloud-backup>
-    <device-transfer>
-        <!-- Transfer all app data -->
-        <include domain="root" path="."/>
-        <include domain="file" path="."/>
-        <include domain="database" path="."/>
-        <include domain="sharedpref" path="."/>
-        <include domain="external" path="."/>
-    </device-transfer>
 </data-extraction-rules>
